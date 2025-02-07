@@ -24,7 +24,6 @@ func New(ctx context.Context) (*Database, error) {
 		os.Getenv("MONGO_INITDB_DATABASE"),
 		os.Getenv("MONGO_AUTH_SOURCE"),
 	)
-	fmt.Println(uri)
 
 	client, err := mongo.Connect(options.Client().SetTimeout(10 * time.Second).ApplyURI(uri))
 	if err != nil {

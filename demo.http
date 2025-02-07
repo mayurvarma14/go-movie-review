@@ -1,0 +1,110 @@
+POST http://localhost:8080/users/login
+
+{
+ "Email":"bob@gmail.com", 
+ "Password":"test1234"
+}
+###
+POST http://localhost:8080/users/login
+
+{
+  "Email":"john.doe@gmail.com", 
+  "Password":"test1234"
+}
+###
+POST http://localhost:8080/users/signup
+
+{ 
+ "Username":"john",            
+ "Name":"John",            
+ "Email":"john.doe@gmail.com", 
+ "Password":"test1234",
+ "User_type":"USER"
+ }
+
+POST http://localhost:8080/users/signup
+###
+{ 
+ "Username":"bob12",            
+ "Name":"Bob Smith",            
+ "Email":"bob@gmail.com", 
+ "Password":"test1234",
+ "User_type":"ADMIN"
+}
+###
+GET http://localhost:8080/users/6796785f6f88ed2b75e1a2c2
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+GET http://localhost:8080/users
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+POST http://localhost:8080/genres
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+
+{
+ "Name":"Animation",
+ "genre_id":2
+}
+###
+GET http://localhost:8080/genres/2
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+GET http://localhost:8080/genres
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+POST http://localhost:8080/genres
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+
+{
+ "Name":"Test1",
+ "genre_id":3
+}
+###
+PUT http://localhost:8080/genres/679c041e4d5af5c57140481f
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+
+{
+ "Name":"Test",
+  "genre_id":3
+}
+###
+DELETE http://localhost:8080/genres/3
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+POST http://localhost:8080/movies
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+
+{
+	"Name":"Rango",
+	"Topic":"test",
+	"genre_id":2,
+	"Movie_URL":"test.com",
+	"movie_id":1
+}
+###
+GET http://localhost:8080/movies/67a678329b4f9929e019bb9c
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+GET http://localhost:8080/movies
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+PUT http://localhost:8080/movies/67a67da765b7aa6b11fac961
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+
+{
+	"Name":"Hello",
+	"Topic":"hey",
+	"genre_id":2,
+	"Movie_URL":"test1.com"
+}
+
+###
+GET http://localhost:8080/movies/search?name=Ra
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+
+###
+GET http://localhost:8080/movies/filter?genre_id=1
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE
+###
+DELETE http://localhost:8080/movies/3
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDAwOTM1fQ.59ISIj8S51QRSRttYerNSPeeY8J7bIdTJW1NLErUVQE

@@ -226,7 +226,6 @@ func (uc *UserController) GetUsers() gin.HandlerFunc {
 		}
 
 		startIndex := (page - 1) * recordPerPage
-		// startIndex, err = strconv.Atoi(c.Query("startIndex"))
 
 		match := bson.D{{Key: "$match", Value: bson.D{{}}}}
 		group := bson.D{{Key: "$group", Value: bson.D{
