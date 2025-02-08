@@ -12,6 +12,7 @@ type Movie struct {
 	Topic     *string       `json:"topic" validate:"required"`
 	GenreID   int           `json:"genre_id" bson:"genre_id"`
 	MovieURL  *string       `json:"movie_url" validate:"required"`
+	MovieID   int           `json:"movie_id" bson:"movie_id"`
 	CreatedAt time.Time     `json:"created_at" bson:"created_at"`
 	UpdatedAt time.Time     `json:"updated_at" bson:"updated_at"`
 }

@@ -73,7 +73,7 @@ func (mc *MovieController) CreateMovie() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"message": "Movie created successfully", "movie_id": result.InsertedID})
+		c.JSON(http.StatusCreated, gin.H{"message": "Movie created successfully", "movie_id": movie.MovieID, "ID": result.InsertedID})
 	}
 }
 
