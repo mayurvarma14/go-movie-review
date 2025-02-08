@@ -79,7 +79,6 @@ func (uc *UserController) SignUp() gin.HandlerFunc {
 		user.UpdatedAt = time.Now()
 		user.ID = bson.NewObjectID()
 		user.UserID = user.ID.Hex()
-		user.UserType = &helpers.UserRole
 
 		token, refreshToken, err := helpers.GenerateAllTokens(*user.Email, *user.Name, *user.Username, *user.UserType, user.UserID)
 		if err != nil {

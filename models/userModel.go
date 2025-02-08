@@ -13,7 +13,7 @@ type User struct {
 	Password     *string       `json:"password" validate:"required,min=8"`
 	Email        *string       `json:"email" validate:"email,required"`
 	Token        *string       `json:"token,omitempty" bson:"token,omitempty"`
-	UserType     *string       `json:"user_type" validate:"required,eq=helpers.AdminRole|eq=helpers.UserRole"`
+	UserType     *string       `json:"user_type" validate:"required,eq=ADMIN|eq=USER"`
 	RefreshToken *string       `json:"refresh_token,omitempty" bson:"refresh_token,omitempty"`
 	CreatedAt    time.Time     `json:"created_at" bson:"created_at"`
 	UpdatedAt    time.Time     `json:"updated_at" bson:"updated_at"`

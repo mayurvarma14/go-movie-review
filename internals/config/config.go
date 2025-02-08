@@ -9,7 +9,7 @@ import (
 
 func LoadEnv() {
 	if err := godotenv.Load(".env"); err != nil {
-		log.Fatal("Error loading .env file:", err)
+		log.Println("Warning: Error loading .env file (this is OK in Container):", err)
 	}
 
 	required := []string{

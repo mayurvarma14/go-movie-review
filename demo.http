@@ -29,8 +29,8 @@ Content-Type: application/json
 ###
 
 # --- Login (Get Tokens) ---
-
 # Login as Admin (capture the token)
+# @name adminLogin
 POST http://localhost:8080/users/login
 Content-Type: application/json
 
@@ -40,11 +40,11 @@ Content-Type: application/json
 }
 
 # Capture the admin token from the response (using VS Code REST Client syntax)
-@adminToken = {{ $lastResponse.body.token }}
+@adminToken = {{ adminLogin.response.token }}
 
 ###
-
 # Login as User (capture the token)
+# @name userLogin
 POST http://localhost:8080/users/login
 Content-Type: application/json
 
@@ -54,7 +54,7 @@ Content-Type: application/json
 }
 
 # Capture the user token
-@userToken = {{ $lastResponse.body.token }}
+@userToken = {{ $userLogin.body.token }}
 
 ###
 
@@ -63,7 +63,7 @@ Content-Type: application/json
 
 # Get all users (Admin only)
 GET http://localhost:8080/users
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{ adminLogin.response.token }}
 
 ###
 # Get all users with pagination (Admin only)

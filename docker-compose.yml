@@ -27,11 +27,7 @@ services:
     build: .
     ports:
       - "8080:8080"
-    env_file: .env
-    environment: #Pass env variables
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    env_file: docker.env
     depends_on:
       mongodb:
         condition: service_healthy  # Wait for MongoDB health check
