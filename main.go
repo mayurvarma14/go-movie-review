@@ -28,6 +28,7 @@ func main() {
 	uc := controllers.NewUserController(db)
 	gc := controllers.NewGenreController(db)
 	mc := controllers.NewMovieController(db)
+	rc := controllers.NewReviewController(db)
 
 	// Set up Gin
 	port := os.Getenv("PORT")
@@ -44,6 +45,7 @@ func main() {
 	routes.UserRoutes(r, uc)
 	routes.GenreRoutes(r, gc)
 	routes.MovieRoutes(r, mc)
+	routes.ReviewRoutes(r, rc)
 
 	r.GET("/api", func(c *gin.Context) {
 		c.JSON(200, gin.H{
