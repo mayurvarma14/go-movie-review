@@ -2,326 +2,284 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/mayurvarma14/go-movie-review/database"
-	helper "github.com/mayurvarma14/go-movie-review/helpers"
+	"github.com/mayurvarma14/go-movie-review/helpers"
 	"github.com/mayurvarma14/go-movie-review/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type MovieController struct {
 	movieCollection *mongo.Collection
+	validate        *validator.Validate
 }
 
 func NewMovieController(db *database.Database) *MovieController {
 	return &MovieController{
-		movieCollection: db.Client.Database(os.Getenv("MONGO_INITDB_DATABASE")).Collection("movie"),
+		movieCollection: db.Client.Database(db.Name).Collection("movie"),
+		validate:        validator.New(),
 	}
 }
 
 func (mc *MovieController) CreateMovie() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if err := helper.VerifyUserType(c, "ADMIN"); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := helpers.VerifyUserType(c, helpers.AdminRole); err != nil {
+			helpers.HandleError(c, http.StatusForbidden, err)
 			return
 		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		var movie models.Movie
 		defer cancel()
 
+		var movie models.Movie
 		if err := c.BindJSON(&movie); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"Status":  http.StatusBadRequest,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("binding JSON: %w", err))
 			return
 		}
 
-		regexMatch := bson.M{"$regex": bson.Regex{Pattern: *movie.Name, Options: "i"}}
-		count, err := mc.movieCollection.CountDocuments(ctx, bson.M{"name": regexMatch})
-		defer cancel()
+		if err := mc.validate.Struct(&movie); err != nil {
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("validation: %w", err))
+			return
+		}
+
+		count, err := mc.movieCollection.CountDocuments(ctx, bson.M{"name": bson.M{"$regex": *movie.Name, "$options": "i"}})
 		if err != nil {
-			log.Panic(err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "error occurred while checking for the movie name"})
+			log.Printf("Error checking movie: %v", err)
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("checking movie: %w", err))
+			return
 		}
 		if count > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "this movie name already exists", "count": count})
+			helpers.HandleError(c, http.StatusBadRequest, errors.New("movie already exists"))
 			return
 		}
 
-		if validationError := validate.Struct(&movie); validationError != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"Status":  http.StatusBadRequest,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": validationError.Error()}})
-			return
-		}
+		movie.ID = bson.NewObjectID()
+		movie.CreatedAt = time.Now()
+		movie.UpdatedAt = time.Now()
 
-		newMovie := models.Movie{
-			Id:       bson.NewObjectID(),
-			Name:     movie.Name,
-			Topic:    movie.Topic,
-			Genre_id: movie.Genre_id,
-
-			Movie_URL:  movie.Movie_URL,
-			Created_at: movie.Created_at,
-			Updated_at: movie.Updated_at,
-			Movie_id:   movie.Movie_id,
-		}
-		result, err := mc.movieCollection.InsertOne(ctx, newMovie)
-
+		result, err := mc.movieCollection.InsertOne(ctx, movie)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"Status":  http.StatusInternalServerError,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("inserting movie: %w", err))
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"Status":  http.StatusCreated,
-			"Message": "success",
-			"Data":    map[string]interface{}{"data": result}})
+		c.JSON(http.StatusCreated, gin.H{"message": "Movie created successfully", "movie_id": result.InsertedID})
 	}
 }
 
 func (mc *MovieController) GetMovie() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		movieId := c.Param("movie_id")
-		var movie models.Movie
-		defer cancel()
-
-		objId, _ := bson.ObjectIDFromHex(movieId)
-
-		err := mc.movieCollection.FindOne(ctx, bson.M{"_id": objId}).Decode(&movie)
+		movieIDStr := c.Param("movie_id")
+		movieID, err := strconv.Atoi(movieIDStr)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"Status":  http.StatusInternalServerError,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid movie ID: %w", err))
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"Status":  http.StatusOK,
-			"Message": "success",
-			"Data":    map[string]interface{}{"data": movie}})
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var movie models.Movie
+		err = mc.movieCollection.FindOne(ctx, bson.M{"movie_id": movieID}).Decode(&movie)
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				helpers.HandleError(c, http.StatusNotFound, errors.New("movie not found"))
+			} else {
+				helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("finding movie: %w", err))
+			}
+			return
+		}
+
+		c.JSON(http.StatusOK, movie)
 	}
 }
 
 func (mc *MovieController) GetMovies() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		recordPerPage, err := strconv.Atoi(c.Query("recordPerPage"))
-		if err != nil || recordPerPage < 1 {
-			recordPerPage = 10
-		}
-		page, err1 := strconv.Atoi(c.Query("page"))
-		if err1 != nil || page < 1 {
-			page = 1
-		}
-
-		startIndex := (page - 1) * recordPerPage
-
-		matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
-		groupStage := bson.D{{Key: "$group", Value: bson.D{
-			{Key: "_id", Value: bson.D{{Key: "_id", Value: "null"}}},
-			{Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}},
-			{Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}}}}}
-		projectStage := bson.D{
-			{Key: "$project", Value: bson.D{
-				{Key: "_id", Value: 0},
-				{Key: "total_count", Value: 1},
-				{Key: "movie_items", Value: bson.D{{Key: "$slice", Value: []interface{}{"$data", startIndex, recordPerPage}}}}}}}
-		result, err := mc.movieCollection.Aggregate(ctx, mongo.Pipeline{
-			matchStage, groupStage, projectStage})
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+
+		page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+		if err != nil || page < 1 {
+			helpers.HandleError(c, http.StatusBadRequest, errors.New("invalid page number"))
+			return
+		}
+		limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+		if err != nil || limit < 1 {
+			helpers.HandleError(c, http.StatusBadRequest, errors.New("invalid limit number"))
+			return
+		}
+		skip := (page - 1) * limit
+
+		findOptions := options.Find()
+		findOptions.SetSkip(int64(skip))
+		findOptions.SetLimit(int64(limit))
+
+		cursor, err := mc.movieCollection.Find(ctx, bson.M{}, findOptions)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error occurred while fetching movies "})
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("finding movies: %w", err))
+			return
 		}
-		var allMovies []bson.M
-		if err = result.All(ctx, &allMovies); err != nil {
-			log.Fatal(err)
+		defer cursor.Close(ctx)
+
+		var movies []models.Movie
+		if err := cursor.All(ctx, &movies); err != nil {
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("decoding movies: %w", err))
+			return
 		}
-		c.JSON(http.StatusOK, allMovies[0])
+
+		c.JSON(http.StatusOK, gin.H{"movies": movies})
 	}
 }
 
 func (mc *MovieController) UpdateMovie() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		movieId := c.Param("movie_id")
-		var movie models.Movie
-		defer cancel()
-		objId, _ := bson.ObjectIDFromHex(movieId)
-
-		if err := c.BindJSON(&movie); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"Status":  http.StatusBadRequest,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+		if err := helpers.VerifyUserType(c, helpers.AdminRole); err != nil {
+			helpers.HandleError(c, http.StatusForbidden, err)
 			return
 		}
 
-		if validationError := validate.Struct(&movie); validationError != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"Status":  http.StatusBadRequest,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": validationError.Error()}})
+		movieIDStr := c.Param("movie_id")
+		movieID, err := strconv.Atoi(movieIDStr)
+		if err != nil {
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid movie ID: %w", err))
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var updatedMovie models.Movie
+		if err := c.BindJSON(&updatedMovie); err != nil {
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("binding JSON: %w", err))
+			return
+		}
+		if err := mc.validate.Struct(&updatedMovie); err != nil {
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("validation error: %w", err))
 			return
 		}
 
 		update := bson.M{
-			"name":      movie.Name,
-			"topic":     movie.Topic,
-			"genre_id":  movie.Genre_id,
-			"movie_url": movie.Movie_URL}
-		filterByID := bson.M{"_id": bson.M{"$eq": objId}}
-		result, err := mc.movieCollection.UpdateOne(ctx, filterByID, bson.M{"$set": update})
+			"$set": bson.M{
+				"name":       updatedMovie.Name,
+				"topic":      updatedMovie.Topic,
+				"genre_id":   updatedMovie.GenreID,
+				"movie_url":  updatedMovie.MovieURL,
+				"updated_at": time.Now(),
+			},
+		}
+
+		result, err := mc.movieCollection.UpdateOne(ctx, bson.M{"movie_id": movieID}, update)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"Status":  http.StatusInternalServerError,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("updating movie: %w", err))
 			return
 		}
 
-		var updatedMovie models.Movie
-		if result.MatchedCount == 1 {
-			err := mc.movieCollection.FindOne(ctx, filterByID).Decode(&updatedMovie)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"Status":  http.StatusInternalServerError,
-					"Message": "error",
-					"Data":    map[string]interface{}{"data": err.Error()}})
-				return
-			}
+		if result.MatchedCount == 0 {
+			helpers.HandleError(c, http.StatusNotFound, errors.New("movie not found"))
+			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"Status":  http.StatusOK,
-			"Message": "movie updated successfully!",
-			"Data":    updatedMovie})
+		c.JSON(http.StatusOK, gin.H{"message": "Movie updated successfully"})
 	}
 }
 
 func (mc *MovieController) SearchMovieByQuery() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var searchMovies []models.Movie
-		queryParam := c.Query("name")
-		if queryParam == "" {
-			log.Println("name is empty")
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid search parameter"})
-			c.Abort()
+		query := c.Query("name")
+		if query == "" {
+			helpers.HandleError(c, http.StatusBadRequest, errors.New("search query parameter 'name' is required"))
 			return
 		}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		searchQueryDB, err := mc.movieCollection.Find(ctx, bson.M{"name": bson.M{"$regex": queryParam}})
+
+		var movies []models.Movie
+		cursor, err := mc.movieCollection.Find(ctx, bson.M{"name": bson.M{"$regex": query, "$options": "i"}})
 		if err != nil {
-			c.IndentedJSON(404, "something went wrong")
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("searching movies: %w", err))
 			return
 		}
-		err = searchQueryDB.All(ctx, &searchMovies)
-		if err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid")
+		defer cursor.Close(ctx)
+
+		if err := cursor.All(ctx, &movies); err != nil {
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("decoding movies: %w", err))
 			return
 		}
-		defer searchQueryDB.Close(ctx)
-		if err := searchQueryDB.Err(); err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid request")
-			return
-		}
-		defer cancel()
-		c.IndentedJSON(200, searchMovies)
+
+		c.JSON(http.StatusOK, movies)
 	}
 }
 
 func (mc *MovieController) SearchMovieByGenre() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var searchByGenre []models.Movie
-		genreId := c.Query("genre_id")
-		if genreId == "" {
-			log.Println("query is empty")
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid Search Index"})
-			c.Abort()
-			return
-		}
-		i, err := strconv.Atoi(genreId)
+		genreIDStr := c.Query("genre_id")
+		genreID, err := strconv.Atoi(genreIDStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid genre id"})
-			log.Panic(err)
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid genre ID: %w", err))
 			return
 		}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		searchDB, err := mc.movieCollection.Find(ctx, bson.M{"genre_id": i})
+
+		var movies []models.Movie
+		cursor, err := mc.movieCollection.Find(ctx, bson.M{"genre_id": genreID})
 		if err != nil {
-			c.IndentedJSON(404, "something went wrong in fetching the dbquery")
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("searching movies by genre: %w", err))
 			return
 		}
-		err = searchDB.All(ctx, &searchByGenre)
-		if err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid")
+		defer cursor.Close(ctx)
+
+		if err := cursor.All(ctx, &movies); err != nil {
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("decoding movies: %w", err))
 			return
 		}
-		defer searchDB.Close(ctx)
-		if err := searchDB.Err(); err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid request")
-			return
-		}
-		defer cancel()
-		c.IndentedJSON(200, searchByGenre)
+
+		c.JSON(http.StatusOK, movies)
 	}
 }
 
 func (mc *MovieController) DeleteMovie() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if err := helpers.VerifyUserType(c, helpers.AdminRole); err != nil {
+			helpers.HandleError(c, http.StatusForbidden, err)
+			return
+		}
+
+		movieIDStr := c.Param("movie_id")
+		movieID, err := strconv.Atoi(movieIDStr)
+
+		if err != nil {
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid movie ID: %w", err))
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		movieId := c.Param("movie_id")
 		defer cancel()
-		i, err := strconv.Atoi(movieId)
+
+		result, err := mc.movieCollection.DeleteOne(ctx, bson.M{"movie_id": movieID})
 		if err != nil {
-			// Handle error
-		}
-		result, err := mc.movieCollection.DeleteOne(ctx, bson.M{"movie_id": i})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"Status":  http.StatusInternalServerError,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("deleting movie: %w", err))
 			return
 		}
 
-		if result.DeletedCount < 1 {
-			c.JSON(http.StatusNotFound,
-				gin.H{
-					" Status":  http.StatusNotFound,
-					" Message": "error",
-					" Data":    map[string]interface{}{"data": "Movie with specified ID not found!"}},
-			)
+		if result.DeletedCount == 0 {
+			helpers.HandleError(c, http.StatusNotFound, errors.New("movie not found"))
 			return
 		}
 
-		c.JSON(http.StatusOK,
-			gin.H{
-				"Status":  http.StatusOK,
-				"Message": "success",
-				"Data":    map[string]interface{}{"data": "Movie successfully deleted!"}},
-		)
+		c.JSON(http.StatusOK, gin.H{"message": "Movie deleted successfully"})
 	}
 }

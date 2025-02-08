@@ -2,15 +2,16 @@ package controllers
 
 import (
 	"context"
-	"log"
+	"errors"
+	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/mayurvarma14/go-movie-review/database"
-	helper "github.com/mayurvarma14/go-movie-review/helpers"
+	"github.com/mayurvarma14/go-movie-review/helpers"
 	"github.com/mayurvarma14/go-movie-review/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -18,174 +19,171 @@ import (
 
 type ReviewController struct {
 	reviewCollection *mongo.Collection
+	validate         *validator.Validate
 }
 
 func NewReviewController(db *database.Database) *ReviewController {
 	return &ReviewController{
-		reviewCollection: db.Client.Database(os.Getenv("MONGO_INITDB_DATABASE")).Collection("review"),
+		reviewCollection: db.Client.Database(db.Name).Collection("review"),
+		validate:         validator.New(),
 	}
 }
 
 func (rc *ReviewController) AddReview() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
-		if err := helper.VerifyUserType(c, "USER"); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		userType := c.GetString("user_type")
+		if userType != helpers.UserRole {
+			helpers.HandleError(c, http.StatusForbidden, errors.New("only users can add reviews"))
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		var review models.Reviews
 		defer cancel()
 
+		var review models.Reviews
 		if err := c.BindJSON(&review); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"Status":  http.StatusBadRequest,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("binding JSON: %w", err))
 			return
 		}
 
-		if validationError := validate.Struct(&review); validationError != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"Status":  http.StatusBadRequest,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": validationError.Error()}})
+		if err := rc.validate.Struct(&review); err != nil {
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("validation: %w", err))
 			return
 		}
 
-		newReview := models.Reviews{
-			Id:          bson.NewObjectID(),
-			Movie_id:    review.Movie_id,
-			Reviewer_id: c.GetString("uid"),
-			Review:      review.Review,
+		reviewerID := c.GetString("uid") // Get reviewer ID from JWT
+		if reviewerID == "" {
+			helpers.HandleError(c, http.StatusInternalServerError, errors.New("reviewer ID not found in token"))
+			return
 		}
-
-		result, err := rc.reviewCollection.InsertOne(ctx, newReview)
-
+		objectReviewerID, err := bson.ObjectIDFromHex(reviewerID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"Status":  http.StatusInternalServerError,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusBadRequest, errors.New("invalid reviewer ID format"))
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"Status":  http.StatusCreated,
-			"Message": "success",
-			"Data":    map[string]interface{}{"data": result}})
+		review.ID = bson.NewObjectID()
+		review.ReviewerID = objectReviewerID // Use the extracted ID
+		review.CreatedAt = time.Now()
+		review.UpdatedAt = time.Now()
+
+		_, err = rc.reviewCollection.InsertOne(ctx, review)
+		if err != nil {
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("inserting review: %w", err))
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"message": "Review added successfully"})
 	}
 }
 
 func (rc *ReviewController) ViewAMovieReviews() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var searchReviews []models.Reviews
-		queryParam := c.Query("movie_id")
-		if queryParam == "" {
-			log.Println("No movie id passed")
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid Search Index"})
-			c.Abort()
-			return
-		}
-		id, err := strconv.Atoi(queryParam)
+		movieIDStr := c.Query("movie_id")
+		movieID, err := strconv.Atoi(movieIDStr)
 		if err != nil {
-			log.Println("Invalid movie id")
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusBadRequest, gin.H{"Error": "Invalid movie id"})
-			c.Abort()
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid movie ID: %w", err))
 			return
 		}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		searchQueryDB, err := rc.reviewCollection.Find(ctx, bson.M{"movie_id": id})
+
+		var reviews []models.Reviews
+		cursor, err := rc.reviewCollection.Find(ctx, bson.M{"movie_id": movieID})
 		if err != nil {
-			c.IndentedJSON(404, "something went wrong in fetching the dbquery")
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("finding reviews: %w", err))
 			return
 		}
-		err = searchQueryDB.All(ctx, &searchReviews)
-		if err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid")
+		defer cursor.Close(ctx)
+
+		if err := cursor.All(ctx, &reviews); err != nil {
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("decoding reviews: %w", err))
 			return
 		}
-		defer searchQueryDB.Close(ctx)
-		if err := searchQueryDB.Err(); err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid request")
-			return
-		}
-		defer cancel()
-		c.IndentedJSON(200, searchReviews)
+
+		c.JSON(http.StatusOK, reviews)
 	}
 }
 
 func (rc *ReviewController) DeleteReview() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		reviewId := c.Param("id")
-		defer cancel()
-		objId, _ := bson.ObjectIDFromHex(reviewId)
-
-		result, err := rc.reviewCollection.DeleteOne(ctx, bson.M{"_id": objId})
+		reviewIDStr := c.Param("id")
+		reviewID, err := bson.ObjectIDFromHex(reviewIDStr) // Use ParseObjectID
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"Status":  http.StatusInternalServerError,
-				"Message": "error",
-				"Data":    map[string]interface{}{"data": err.Error()}})
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid review ID format: %w", err))
 			return
 		}
 
-		if result.DeletedCount < 1 {
-			c.JSON(http.StatusNotFound,
-				gin.H{
-					" Status":  http.StatusNotFound,
-					" Message": "error",
-					" Data":    map[string]interface{}{"data": "Review with specified ID not found!"}},
-			)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Find the review to check ownership
+		var review models.Reviews
+		err = rc.reviewCollection.FindOne(ctx, bson.M{"_id": reviewID}).Decode(&review)
+		if err != nil {
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				helpers.HandleError(c, http.StatusNotFound, errors.New("review not found"))
+			} else {
+				helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("finding review: %w", err))
+			}
 			return
 		}
 
-		c.JSON(http.StatusOK,
-			gin.H{
-				"Status":  http.StatusOK,
-				"Message": "success",
-				"Data":    map[string]interface{}{"data": "Your review was successfully deleted!"}},
-		)
+		// Check if the user deleting the review is the owner or an admin.
+		reviewerID := c.GetString("uid")
+		objectReviewerID, err := bson.ObjectIDFromHex(reviewerID) // Use ParseObjectID
+		if err != nil {
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid reviewer ID: %w", err))
+			return
+		}
+		if review.ReviewerID != objectReviewerID && c.GetString("user_type") != helpers.AdminRole {
+			helpers.HandleError(c, http.StatusForbidden, errors.New("unauthorized to delete this review"))
+			return
+		}
+
+		result, err := rc.reviewCollection.DeleteOne(ctx, bson.M{"_id": reviewID})
+		if err != nil {
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("deleting review: %w", err))
+			return
+		}
+
+		if result.DeletedCount == 0 {
+			helpers.HandleError(c, http.StatusNotFound, errors.New("review not found")) // Should not happen, but check anyway
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Review deleted successfully"})
 	}
 }
 
 func (rc *ReviewController) AllUserReviews() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var searchReviews []models.Reviews
-		reviewId := c.Param("reviewer_id")
-		if reviewId == "" {
-			log.Println("No reviewer id passed")
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusNotFound, gin.H{"Error": "Invalid Search Index"})
-			c.Abort()
+		reviewerID := c.Param("reviewer_id")
+		if err := helpers.MatchUserID(c, reviewerID); err != nil {
+			helpers.HandleError(c, http.StatusUnauthorized, err) // Enforce ownership
 			return
 		}
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		searchQueryDB, err := rc.reviewCollection.Find(ctx, bson.M{"reviewer_id": reviewId})
+		objectReviewerID, err := bson.ObjectIDFromHex(reviewerID) // Use ParseObjectID
 		if err != nil {
-			c.IndentedJSON(404, "something went wrong in fetching the dbquery")
+			helpers.HandleError(c, http.StatusBadRequest, fmt.Errorf("invalid reviewer ID format: %w", err))
 			return
 		}
-		err = searchQueryDB.All(ctx, &searchReviews)
+		var reviews []models.Reviews
+		cursor, err := rc.reviewCollection.Find(ctx, bson.M{"reviewer_id": objectReviewerID})
 		if err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid")
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("finding reviews: %w", err))
 			return
 		}
-		defer searchQueryDB.Close(ctx)
-		if err := searchQueryDB.Err(); err != nil {
-			log.Println(err)
-			c.IndentedJSON(400, "invalid request")
+		defer cursor.Close(ctx)
+
+		if err := cursor.All(ctx, &reviews); err != nil {
+			helpers.HandleError(c, http.StatusInternalServerError, fmt.Errorf("decoding reviews: %w", err))
 			return
 		}
-		defer cancel()
-		c.IndentedJSON(200, searchReviews)
+
+		c.JSON(http.StatusOK, reviews)
 	}
 }

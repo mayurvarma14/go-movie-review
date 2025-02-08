@@ -7,10 +7,10 @@ import (
 )
 
 type Reviews struct {
-	Id          bson.ObjectID `bson:"_id"`
-	Movie_id    int           `json:"movie_id"`
-	Reviewer_id string        `json:"reviewer_id"`
-	Review      *string       `json:"review" validate:"required"`
-	Created_at  time.Time     `json:"created_at"`
-	Updated_at  time.Time     `json:"updated_at"`
+	ID         bson.ObjectID `bson:"_id"`
+	MovieID    int           `json:"movie_id" bson:"movie_id"`
+	ReviewerID bson.ObjectID `json:"reviewer_id" bson:"reviewer_id"`
+	Review     *string       `json:"review" validate:"required"`
+	CreatedAt  time.Time     `json:"created_at" bson:"created_at"`
+	UpdatedAt  time.Time     `json:"updated_at" bson:"updated_at"`
 }

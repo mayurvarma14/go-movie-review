@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     ports:
       - "27017:27017"
-    env_file: .env  # Load variables from .env
+    env_file: .env
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
@@ -16,11 +16,36 @@ services:
       - mongo_data:/data/db
       - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
-      - app_network
+      - movie_review_app_network
+    healthcheck:  # MongoDB health check
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  go-movie-review-app:  # Renamed service to be more descriptive
+    build: .
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment: #Pass env variables
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    depends_on:
+      mongodb:
+        condition: service_healthy  # Wait for MongoDB health check
+    networks:
+      - movie_review_app_network
+    healthcheck: # Go movie-review-app health check
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   mongo_data:
 
 networks:
-  app_network:
+  movie_review_app_network:
     driver: bridge

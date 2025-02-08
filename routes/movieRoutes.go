@@ -8,11 +8,11 @@ import (
 
 func MovieRoutes(router *gin.Engine, mc *controllers.MovieController) {
 	router.Use(middleware.AuthenticateUser())
-	router.POST("/movies", mc.CreateMovie())
-	router.GET("/movies/:movie_id", mc.GetMovie())
-	router.GET("/movies", mc.GetMovies())
-	router.PUT("/movies/:movie_id", mc.UpdateMovie())
-	router.GET("/movies/search", mc.SearchMovieByQuery())
-	router.GET("movies/filter", mc.SearchMovieByGenre())
-	router.DELETE("/movies/:movie_id", mc.DeleteMovie())
+	router.POST("/movies", mc.CreateMovie())              // Create a new movie (admin only)
+	router.GET("/movies/:movie_id", mc.GetMovie())        // Get a specific movie
+	router.GET("/movies", mc.GetMovies())                 // Get all movies
+	router.PUT("/movies/:movie_id", mc.UpdateMovie())     // Update a movie (admin only)
+	router.GET("/movies/search", mc.SearchMovieByQuery()) // Search movies by name
+	router.GET("/movies/filter", mc.SearchMovieByGenre()) // Search movies by genre
+	router.DELETE("/movies/:movie_id", mc.DeleteMovie())  // Delete a movie (admin only)
 }

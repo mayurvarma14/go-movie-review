@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -13,45 +14,44 @@ import (
 )
 
 func main() {
-	// Load env variables
 	config.LoadEnv()
 
-	// Initialize Database
 	ctx := context.Background()
 	db, err := database.New(ctx)
 	if err != nil {
 		log.Fatal("Database init failed:", err)
 	}
-	defer db.Client.Disconnect(ctx)
+	defer func() {
+		if err := db.Client.Disconnect(ctx); err != nil {
+			log.Fatal("Failed to disconnect from MongoDB:", err)
+		}
+	}()
 
-	// Create controller with injected dependency
 	uc := controllers.NewUserController(db)
 	gc := controllers.NewGenreController(db)
 	mc := controllers.NewMovieController(db)
 	rc := controllers.NewReviewController(db)
 
-	// Set up Gin
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	r := gin.Default()
 
-	//Log events
-	r.Use(gin.Logger())
+	router := gin.Default()
+	router.Use(gin.Logger())
 
-	// Register app routes
-	routes.AuthRoutes(r, uc)
-	routes.UserRoutes(r, uc)
-	routes.GenreRoutes(r, gc)
-	routes.MovieRoutes(r, mc)
-	routes.ReviewRoutes(r, rc)
+	routes.AuthRoutes(router, uc)
+	routes.UserRoutes(router, uc)
+	routes.GenreRoutes(router, gc)
+	routes.MovieRoutes(router, mc)
+	routes.ReviewRoutes(router, rc)
 
-	r.GET("/api", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"success": "Welcome to movie review app",
-		})
+	router.GET("/api", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Welcome to the movie review API"})
 	})
 
-	r.Run(":" + port)
+	log.Printf("Server listening on port %s", port)
+	if err := router.Run(":" + port); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
 }

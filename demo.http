@@ -1,139 +1,310 @@
-POST http://localhost:8080/users/login
+# --- Setup: Create Admin and User ---
+
+# Create an Admin user (replace with a strong password)
+POST http://localhost:8080/users/signup
+Content-Type: application/json
 
 {
- "Email":"bob@gmail.com", 
- "Password":"test1234"
+  "username": "adminUser",
+  "name": "Admin User",
+  "email": "admin@example.com",
+  "password": "AdminPassword123!",
+  "user_type": "ADMIN"
 }
+
 ###
-POST http://localhost:8080/users/login
+
+# Create a regular User (replace with a strong password)
+POST http://localhost:8080/users/signup
+Content-Type: application/json
 
 {
-  "Email":"john.doe@gmail.com", 
-  "Password":"test1234"
+  "username": "testUser",
+  "name": "Test User",
+  "email": "user@example.com",
+  "password": "UserPassword123!",
+  "user_type": "USER"
 }
-###
-POST http://localhost:8080/users/signup
 
-{ 
- "Username":"john",            
- "Name":"John",            
- "Email":"john.doe@gmail.com", 
- "Password":"test1234",
- "User_type":"USER"
- }
-
-POST http://localhost:8080/users/signup
 ###
-{ 
- "Username":"bob12",            
- "Name":"Bob Smith",            
- "Email":"bob@gmail.com", 
- "Password":"test1234",
- "User_type":"ADMIN"
+
+# --- Login (Get Tokens) ---
+
+# Login as Admin (capture the token)
+POST http://localhost:8080/users/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "AdminPassword123!"
 }
+
+# Capture the admin token from the response (using VS Code REST Client syntax)
+@adminToken = {{ $lastResponse.body.token }}
+
 ###
-GET http://localhost:8080/users/6796785f6f88ed2b75e1a2c2
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+
+# Login as User (capture the token)
+POST http://localhost:8080/users/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "UserPassword123!"
+}
+
+# Capture the user token
+@userToken = {{ $lastResponse.body.token }}
+
 ###
+
+
+# --- Users ---
+
+# Get all users (Admin only)
 GET http://localhost:8080/users
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+Authorization: Bearer {{adminToken}}
+
 ###
+# Get all users with pagination (Admin only)
+GET http://localhost:8080/users?page=2&limit=2
+Authorization: Bearer {{adminToken}}
+
+###
+
+# Get a specific user (Admin can get any user)
+GET http://localhost:8080/users/{{ $lastResponse.body.users[0].user_id }}
+Authorization: Bearer {{adminToken}}
+
+###
+
+# Attempt to get a user with an invalid ID (should fail - 404)
+GET http://localhost:8080/users/invalid-user-id
+Authorization: Bearer {{adminToken}}
+
+###
+
+# Attempt to get all users without a token (should fail - 401)
+GET http://localhost:8080/users
+
+###
+
+# Attempt to get all users as a regular user (should fail - 403)
+GET http://localhost:8080/users
+Authorization: Bearer {{userToken}}
+
+###
+
+# --- Genres ---
+
+# Create a genre (Admin only)
 POST http://localhost:8080/genres
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
 
 {
- "Name":"Animation",
- "genre_id":2
+  "name": "Action",
+  "genre_id": 1
 }
+
 ###
-GET http://localhost:8080/genres/2
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+# Create another genre (Admin only)
+POST http://localhost:8080/genres
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Comedy",
+  "genre_id": 2
+}
+
 ###
+
+# Create a genre with an existing name (should fail - 400)
+POST http://localhost:8080/genres
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Action",
+  "genre_id": 3
+}
+
+###
+
+# Get all genres
 GET http://localhost:8080/genres
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+Authorization: Bearer {{userToken}}
+
 ###
-POST http://localhost:8080/genres
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+
+# Get a specific genre
+GET http://localhost:8080/genres/1
+Authorization: Bearer {{userToken}}
+
+###
+
+# Get all genres with pagination
+GET http://localhost:8080/genres?page=1&limit=1
+Authorization: Bearer {{userToken}}
+
+###
+
+# Update a genre (Admin only)
+PUT http://localhost:8080/genres/1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
 
 {
- "Name":"Test1",
- "genre_id":3
+  "name": "Action & Adventure",
+   "genre_id": 1
 }
+
 ###
-PUT http://localhost:8080/genres/679c041e4d5af5c57140481f
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+
+# Attempt to update a genre as a regular user (should fail - 403)
+PUT http://localhost:8080/genres/1
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
 
 {
- "Name":"Test",
-  "genre_id":3
+  "name": "Action Movies",
+    "genre_id": 1
 }
+
 ###
-DELETE http://localhost:8080/genres/3
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+# Delete a genre (Admin only, after creating it)
+DELETE http://localhost:8080/genres/2
+Authorization: Bearer {{adminToken}}
+
+
 ###
+
+# --- Movies ---
+
+# Create a movie (Admin only)
 POST http://localhost:8080/movies
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
 
 {
-	"Name":"Rango",
-	"Topic":"test",
-	"genre_id":2,
-	"Movie_URL":"test.com",
-	"movie_id":1
+  "name": "Awesome Movie",
+  "topic": "A thrilling adventure",
+  "genre_id": 1,
+  "movie_url": "https://example.com/movie"
 }
+
 ###
-GET http://localhost:8080/movies/67a678329b4f9929e019bb9c
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+
+# Create another movie
+POST http://localhost:8080/movies
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Funny Movie",
+  "topic": "A hilarious comedy",
+  "genre_id": 2,
+  "movie_url": "https://example.com/funny"
+}
+
 ###
+
+# Get all movies
 GET http://localhost:8080/movies
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+Authorization: Bearer {{userToken}}
+
 ###
-PUT http://localhost:8080/movies/67a67da765b7aa6b11fac961
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+# Get all movies with pagination
+GET http://localhost:8080/movies?page=1&limit=1
+Authorization: Bearer {{userToken}}
+
+###
+
+# Get a specific movie
+GET http://localhost:8080/movies/{{ $lastResponse.body.movies[0].movie_id }}
+Authorization: Bearer {{userToken}}
+
+###
+
+# Update a movie (Admin only)
+PUT http://localhost:8080/movies/{{ $lastResponse.body.movies[0].movie_id }}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
 
 {
-	"Name":"Hello",
-	"Topic":"hey",
-	"genre_id":2,
-	"Movie_URL":"test1.com"
+  "name": "Updated Movie Title",
+  "topic": "An even more thrilling adventure",
+  "genre_id": 1,
+  "movie_url": "https://example.com/updated"
 }
 
 ###
-GET http://localhost:8080/movies/search?name=Ra
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+
+# Search for movies by name
+GET http://localhost:8080/movies/search?name=Updated
+Authorization: Bearer {{userToken}}
 
 ###
+
+# Filter movies by genre
 GET http://localhost:8080/movies/filter?genre_id=1
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+Authorization: Bearer {{userToken}}
+
 ###
-DELETE http://localhost:8080/movies/3
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImJvYkBnbWFpbC5jb20iLCJOYW1lIjoiQm9iIFNtaXRoIiwiVXNlcm5hbWUiOiJib2IxMiIsIlVpZCI6IjY3OTZiMDY3MTI1M2Q1NjI5ZjM4YzY0YyIsIlVzZXJfdHlwZSI6IkFETUlOIiwiZXhwIjoxNzM5MDUyNDgzfQ.KUX6PEw-2cwvu7ShOu2syCe2KzLDoxwF-sZaYt3Cbqw
+
+# Delete a movie (Admin only)
+DELETE http://localhost:8080/movies/{{ $lastResponse.body[0].movie_id }}
+Authorization: Bearer {{adminToken}}
+
 ###
+
+# --- Reviews ---
+
+# Add a review (User)
 POST http://localhost:8080/reviews
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImpvaG4uZG9lQGdtYWlsLmNvbSIsIk5hbWUiOiJKb2huIiwiVXNlcm5hbWUiOiJqb2huIiwiVWlkIjoiNjc5Njc4NWY2Zjg4ZWQyYjc1ZTFhMmMyIiwiVXNlcl90eXBlIjoiVVNFUiIsImV4cCI6MTczOTA1MzMzMH0.eQYXoLRyjWwjp6HdJdv4vAG4M_K2TE6R4Bq7VlMBvDU
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
 
 {
-	"review" : "Best",
-	"movie_id" : 1,
-	"review_id": 1,
-	"reviewer_id" : "6796785f6f88ed2b75e1a2c2" 
+  "movie_id": 2,
+  "review": "This movie was great!"
 }
+
 ###
+#Add a review (Admin)
 POST http://localhost:8080/reviews
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImpvaG4uZG9lQGdtYWlsLmNvbSIsIk5hbWUiOiJKb2huIiwiVXNlcm5hbWUiOiJqb2huIiwiVWlkIjoiNjc5Njc4NWY2Zjg4ZWQyYjc1ZTFhMmMyIiwiVXNlcl90eXBlIjoiVVNFUiIsImV4cCI6MTczOTA1MzMzMH0.eQYXoLRyjWwjp6HdJdv4vAG4M_K2TE6R4Bq7VlMBvDU
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
 
 {
-	"review" : "Average",
-	"movie_id" : 2,
-	"review_id": 2,
-	"reviewer_id" : "6796785f6f88ed2b75e1a2c2" 
+  "movie_id": 1,
+  "review": "This movie was great! by admin"
 }
 ###
-GET http://localhost:8080/reviews/filter?movie_id=1
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImpvaG4uZG9lQGdtYWlsLmNvbSIsIk5hbWUiOiJKb2huIiwiVXNlcm5hbWUiOiJqb2huIiwiVWlkIjoiNjc5Njc4NWY2Zjg4ZWQyYjc1ZTFhMmMyIiwiVXNlcl90eXBlIjoiVVNFUiIsImV4cCI6MTczOTA1MzMzMH0.eQYXoLRyjWwjp6HdJdv4vAG4M_K2TE6R4Bq7VlMBvDU
+
+# Get reviews for a movie
+GET http://localhost:8080/reviews/filter?movie_id=2
+Authorization: Bearer {{userToken}}
+
 ###
-DELETE http://localhost:8080/reviews/67a73063242bb93392c92e0d
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImpvaG4uZG9lQGdtYWlsLmNvbSIsIk5hbWUiOiJKb2huIiwiVXNlcm5hbWUiOiJqb2huIiwiVWlkIjoiNjc5Njc4NWY2Zjg4ZWQyYjc1ZTFhMmMyIiwiVXNlcl90eXBlIjoiVVNFUiIsImV4cCI6MTczOTA1MzMzMH0.eQYXoLRyjWwjp6HdJdv4vAG4M_K2TE6R4Bq7VlMBvDU
+
+# Get all reviews by a user
+GET http://localhost:8080/reviews/user/{{ $lastResponse.body[0].reviewer_id }}
+Authorization: Bearer {{userToken}}
+
 ###
-GET http://localhost:8080/reviews/user/6796785f6f88ed2b75e1a2c2
-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6ImpvaG4uZG9lQGdtYWlsLmNvbSIsIk5hbWUiOiJKb2huIiwiVXNlcm5hbWUiOiJqb2huIiwiVWlkIjoiNjc5Njc4NWY2Zjg4ZWQyYjc1ZTFhMmMyIiwiVXNlcl90eXBlIjoiVVNFUiIsImV4cCI6MTczOTA1MzMzMH0.eQYXoLRyjWwjp6HdJdv4vAG4M_K2TE6R4Bq7VlMBvDU
+# Get all reviews by a Admin
+GET http://localhost:8080/reviews/user/{{ $lastResponse.body[0].reviewer_id }}
+Authorization: Bearer {{adminToken}}
+###
+
+# Delete a review (Owner)
+DELETE http://localhost:8080/reviews/{{ $lastResponse.body[0].id }}
+Authorization: Bearer {{userToken}}
+
+###
+
+# Attempt to delete a review that doesn't exist (404)
+DELETE http://localhost:8080/reviews/nonexistentreview
+Authorization: Bearer {{userToken}}
